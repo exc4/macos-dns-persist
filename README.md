@@ -2,7 +2,7 @@
 
 This repository offers a solution to persist DNS settings across all network connections on macOS using a launch service.
 
-macOS uses different DNS settings for various network connections, making it challenging to maintain consistent DNS settings when frequently connecting to new networks.  However, you may prefer to use specific DNS servers across all connections, particularly when employing DNS caching tools like dnsmasq or utilizing DNS protection services such as stubby, cloudflared and other tools.
+macOS uses different DNS settings for various network connections, making it challenging to maintain consistent DNS settings when frequently connecting to new networks. However, you may prefer to use specific DNS servers across all connections, particularly when employing DNS caching tools like Dnsmasq or utilizing DNS protection services such as Stubby, Cloudflared and other tools.
 
 This repository helps you set the same DNS servers for all network connections and persist these settings by using a launch service. The service executes the settings periodically and upon network changes to ensure the DNS settings remain consistent.
 
