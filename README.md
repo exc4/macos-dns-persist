@@ -36,7 +36,7 @@ persist_dns --uninstall
 ## How to Configure DNS Persistence
 
 To set the DNS servers, edit the `/etc/persist_dns.conf` file. 
-```
+```bash
 # use local DNS server, ensure there is one running on the system
 # you can choose dnsmasq, stubby, cloudflared and etc.
 echo "127.0.0.1 ::1" | sudo tee /etc/persist_dns.conf      
