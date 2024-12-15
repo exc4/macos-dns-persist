@@ -120,6 +120,7 @@ set_dns_servers() {
     done
     echo
     echo "DNS settings have been set, use --list to check"
+    echo
 }
 
 ### start of script

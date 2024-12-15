@@ -21,7 +21,7 @@ cd macos-dns-persist
 
 # Set the DNS configuration for persistence.
 # You can specify multiple DNS servers separated by spaces.
-sudo echo "8.8.8.8 8.8.4.4" > /etc/persist_dns.conf
+echo "127.0.0.1 ::1" | sudo tee /etc/persist_dns.conf
 
 ./persist_dns.sh --install
 ```
@@ -37,12 +37,12 @@ persist_dns --uninstall
 
 To set the DNS servers, edit the `/etc/persist_dns.conf` file. 
 ```
-echo "127.0.0.1 ::1" > /etc/persist_dns.conf     # use local DNS server, ensure there is one running on the system
-                                                 # you can choose dnsmasq, stubby, cloudflared and etc. 
-                                                 
-echo "8.8.8.8 8.8.4.4" > /etc/persist_dns.conf   # use public DNS servers
+echo "127.0.0.1 ::1" | sudo tee /etc/persist_dns.conf     # use local DNS server, ensure there is one running on the system
+                                                          # you can choose dnsmasq, stubby, cloudflared and etc. 
 
-echo "DEFAULT" > /etc/persist_dns.conf           # use default DNS servers obtained from DHCP
+echo "8.8.8.8 8.8.4.4" | sudo tee /etc/persist_dns.conf   # use public DNS servers
+
+echo "DEFAULT" | sudo tee /etc/persist_dns.conf           # use default DNS servers obtained from DHCP
 ```
 After editing the file, run the following command to apply the changes:
 
