@@ -1,38 +1,17 @@
 #!/bin/bash
 #
-# This script is modified from the original script from stubby: 
+# This script is inspired by the original script from stubby:
 # https://github.com/getdnsapi/stubby/blob/develop/macos/stubby-setdns-macos.sh
-#
-# Original Copyright (c) 2017, Sinodun Internet Technologies Ltd, NLnet Labs
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in the
-#   documentation and/or other materials provided with the distribution.
-# * Neither the names of the copyright holders nor the
-#   names of its contributors may be used to endorse or promote products
-#   derived from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL Verisign, Inc. BE LIABLE FOR ANY
-# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# Original Copyright (c) 2017, Sinodun Internet Technologies Ltd, NLnet Labs. All rights reserved.
+# The script has been modified to function as a service to persist DNS settings on macOS.
 
 
 # Helper file to set DNS servers on macOS.
 # Note - this script doesn't detect or handle network events, simply changes the
 # current resolvers
 # Must run as root.
+
+set -e
 
 ### define functions
 
@@ -63,31 +42,35 @@ usage () {
 install_service() {
     echo "Installing as a system service to persist DNS settings"
 
-    # download persist_dns.sh and io.github.exc4.dnspersist.plist
-    echo "Downloading files..."
-
-    curl -o /tmp/persist_dns https://raw.githubusercontent.com/exc4/macos-dns-persist/persist_dns.sh
-    curl -o /tmp/$PLIST_NAME https://raw.githubusercontent.com/exc4/macos-dns-persist/io.github.exc4.dnspersist.plist
-
     # copy to system
-    sudo cp /tmp/persist_dns /usr/local/bin/persist_dns
-    sudo cp /tmp/$PLIST_NAME /Library/LaunchDaemons/$PLIST_NAME
+    cp -f ./persist_dns.sh /usr/local/bin/persist_dns || { echo "Failed to copy persist_dns.sh"; exit 1; }
+    cp -f ./$PLIST_NAME /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to copy $PLIST_NAME"; exit 1; }
+
+    rm -f /tmp/persist_dns
+    rm -f /tmp/$PLIST_NAME
 
     # set permissions
-    sudo chown root:wheel /Library/LaunchDaemons/$PLIST_NAME
-    sudo chmod 644 /Library/LaunchDaemons/$PLIST_NAME
-    sudo chmod a+x /usr/local/bin/persist_dns
+    chown root:wheel /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to change ownership of $PLIST_NAME"; exit 1; }
+    chmod 644 /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to set permissions for $PLIST_NAME"; exit 1; }
+    chmod a+x /usr/local/bin/persist_dns || { echo "Failed to set execute permission for persist_dns"; exit 1; }
 
     # load the service
-    echo "Loading service..."
-    sudo launchctl load /Library/LaunchDaemons/$PLIST_NAME
+    launchctl load /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to load service"; exit 1; }
 
-    echo "services installed"
-    echo "You can check the status of the service with: sudo launchctl list | grep $PLIST_NAME"
-    echo "You can check the current dns settings with: sudo persist_dns --list"
-    echo "You can reset the dns settings to default(auto from dhcp) with: sudo persist_dns --reset"
-    echo "You can check the service log with: cat /var/log/persist_dns.log"
-    echo "You can uninstall the service with: sudo persist_dns --uninstall"
+    echo "Installed"
+    echo
+    echo "You can check the status of the service with:"
+    echo "    sudo launchctl list | grep io.github.exc4.dnspersist"
+    echo
+    echo "You can check the current dns settings with:"
+    echo "    persist_dns --list"
+    echo "status code 0 means success executed. The dns settings will be executed at regular intervals and will also be triggered by network changes."
+    echo
+    echo "You can check the service log with:"
+    echo "    cat /var/log/persist_dns.log"
+    echo
+    echo "You can uninstall the service with:"
+    echo "    sudo persist_dns --uninstall"
     exit 1
 }
 
@@ -96,6 +79,7 @@ uninstall_service() {
     sudo launchctl unload /Library/LaunchDaemons/$PLIST_NAME
     sudo rm -f /Library/LaunchDaemons/$PLIST_NAME
     sudo rm -f /usr/local/bin/persist_dns
+    sudo rm -f /var/log/persist_dns.log
     # do you want to remove the config file?
     read -p "Do you want to remove the config file? (y/n) " REMOVE_CONFIG
     if [[ $REMOVE_CONFIG == "y" ]]; then
@@ -105,7 +89,11 @@ uninstall_service() {
 
 list_current_dns() {
     echo "** /etc/persist_dns.conf **"
-    cat /etc/persist_dns.conf
+    if [[ -f $CONFIG_FILE ]]; then 
+        cat $CONFIG_FILE
+    else
+        echo "Config file not found. Using default servers. (eg. auto from DHCP)"
+    fi
     echo
     echo "** Current DNS settings **"
     echo
@@ -128,13 +116,21 @@ list_current_dns() {
 set_dns_servers() {
     local servers="$1"
     networksetup -listallnetworkservices 2>/dev/null | grep -v '\*' | while read -r x ; do
-        networksetup -setdnsservers "$x" $servers
+        sudo networksetup -setdnsservers "$x" $servers
     done
     echo
     echo "DNS settings have been set, use --list to check"
 }
 
 ### start of script
+
+# check the log file size
+LOG_FILE="/var/log/persist_dns.log"
+LOG_FILE_SIZE=$(stat -f%z $LOG_FILE)
+if [[ $LOG_FILE_SIZE -gt 1000000 ]]; then
+    sudo truncate -s 0 $LOG_FILE
+    echo "Log file is too large. Cleared log file."
+fi
 
 RESET=0
 LIST=0
@@ -219,8 +215,10 @@ if [[ -f $CONFIG_FILE ]]; then
 
 else
     SERVERS="empty"
-    echo "Config file not found. Reset to default servers. (eg. auto from DHCP)"
+    echo "Config file not found. Using default servers. (eg. auto from DHCP)"
 fi
+
+echo
 
 # Install the service
 if [[ $INSTALL -eq 1 ]]; then
