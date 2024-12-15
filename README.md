@@ -37,12 +37,15 @@ persist_dns --uninstall
 
 To set the DNS servers, edit the `/etc/persist_dns.conf` file. 
 ```
-echo "127.0.0.1 ::1" | sudo tee /etc/persist_dns.conf     # use local DNS server, ensure there is one running on the system
-                                                          # you can choose dnsmasq, stubby, cloudflared and etc. 
+# use local DNS server, ensure there is one running on the system
+# you can choose dnsmasq, stubby, cloudflared and etc.
+echo "127.0.0.1 ::1" | sudo tee /etc/persist_dns.conf      
 
-echo "8.8.8.8 8.8.4.4" | sudo tee /etc/persist_dns.conf   # use public DNS servers
+# use public DNS servers
+echo "8.8.8.8 8.8.4.4" | sudo tee /etc/persist_dns.conf  
 
-echo "DEFAULT" | sudo tee /etc/persist_dns.conf           # use default DNS servers obtained from DHCP
+# use default DNS servers obtained from DHCP
+echo "DEFAULT" | sudo tee /etc/persist_dns.conf           
 ```
 After editing the file, run the following command to apply the changes:
 
