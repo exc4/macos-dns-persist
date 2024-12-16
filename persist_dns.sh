@@ -6,7 +6,7 @@
 # The script has been modified to function as a service to persist DNS settings on macOS.
 
 
-# Helper file to set DNS servers on macOS.
+# Helper file to set DNS resolvers on macOS.
 # Note - this script doesn't detect or handle network events, simply changes the
 # current resolvers
 # Must run as root.
@@ -28,8 +28,6 @@ usage () {
     echo "Supported options:"
     echo
     echo "  -l, --list        List the current DNS settings for all interfaces"
-    echo "  -r, --reset       Set DNS resolvers to default (e.g. auto from DHCP)."
-    echo "                    If you have installed the service, this will also set the config file to use the default servers."
     echo
     echo "  --install         Install as a system service to persist DNS settings."
     echo "                    The service will automatically set the DNS servers on all interfaces at specified time intervals and monitor for network changes."
@@ -40,8 +38,6 @@ usage () {
 }
 
 install_service() {
-    echo "Installing as a system service to persist DNS settings"
-
     # copy to system
     cp -f ./persist_dns.sh /usr/local/bin/persist_dns || { echo "Failed to copy persist_dns.sh"; exit 1; }
     cp -f ./$PLIST_NAME /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to copy $PLIST_NAME"; exit 1; }
@@ -57,34 +53,67 @@ install_service() {
     # load the service
     launchctl load /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to load service"; exit 1; }
 
-    echo "Installed"
+    echo "========================================"
+    echo "✅ Installation Successful!"
+    echo "========================================"
     echo
-    echo "You can check the status of the service with:"
+    echo "The DNS settings have been successfully persisted from the configuration file: ${CONFIG_FILE}"
+    echo "Current DNS servers: ${CONFIG_CONTENT}"
+    echo
+    echo "The service has been installed and is now running as a system service to persist DNS settings."
+    echo
+    echo "🔍 To check the status of the service, use:"
     echo "    sudo launchctl list | grep io.github.exc4.dnspersist"
     echo
-    echo "You can check the current dns settings with:"
-    echo "    persist_dns --list"
-    echo "status code 0 means success executed. The dns settings will be executed at regular intervals and will also be triggered by network changes."
+    echo "    should return: '- 0 io.github.exc4.dnspersist' for successful execution"
     echo
-    echo "You can check the service log with:"
+    echo "🔧 To view the current DNS settings, use:"
+    echo "    persist_dns --list"
+    echo
+    echo "📜 To view the service log, use:"
     echo "    cat /var/log/persist_dns.log"
     echo
-    echo "You can uninstall the service with:"
+    echo "🗑️ To uninstall the service, use:"
     echo "    sudo persist_dns --uninstall"
-    exit 1
+    echo
+    echo "========================================"
+
+    exit 0
 }
 
 uninstall_service() {
-    echo "Uninstalling PersistDNS services"
-    sudo launchctl unload /Library/LaunchDaemons/$PLIST_NAME
-    sudo rm -f /Library/LaunchDaemons/$PLIST_NAME
-    sudo rm -f /usr/local/bin/persist_dns
-    sudo rm -f /var/log/persist_dns.log
-    # do you want to remove the config file?
-    read -p "Do you want to remove the config file? (y/n) " REMOVE_CONFIG
+    echo "========================================"
+    echo "🗑️ Uninstalling service"
+    echo "========================================"
+
+    # do you want to reset to default?
+    read -p "🔄 Do you want reset to default DNS servers? (y/n) " RESET_DEFAULT
+    read -p "🗑️ Do you want to remove the config file? (y/n) " REMOVE_CONFIG
+
+    if [[ $RESET_DEFAULT == "y" ]]; then
+        sudo set_dns_servers "empty"
+    fi
+
     if [[ $REMOVE_CONFIG == "y" ]]; then
         sudo rm -f $CONFIG_FILE
     fi
+
+    if [[ -f /Library/LaunchDaemons/$PLIST_NAME ]]; then
+        sudo launchctl unload /Library/LaunchDaemons/$PLIST_NAME
+        sudo rm -f /Library/LaunchDaemons/$PLIST_NAME
+    fi
+
+    if [[ -f /usr/local/bin/persist_dns ]]; then
+        sudo rm -f /usr/local/bin/persist_dns
+    fi
+
+    if [[ -f /var/log/persist_dns.log ]]; then
+        sudo rm -f /var/log/persist_dns.log
+    fi
+
+    echo "========================================"
+    echo "✅ Uninstallation Successful!"
+    echo "========================================"
 }
 
 list_current_dns() {
@@ -119,7 +148,7 @@ set_dns_servers() {
         sudo networksetup -setdnsservers "$x" $servers
     done
     echo
-    echo "DNS settings have been set, use --list to check"
+    echo "🔄 DNS resolvers have been set, use --list to check"
     echo
 }
 
@@ -127,10 +156,12 @@ set_dns_servers() {
 
 # check the log file size
 LOG_FILE="/var/log/persist_dns.log"
-LOG_FILE_SIZE=$(stat -f%z $LOG_FILE)
-if [[ $LOG_FILE_SIZE -gt 1000000 ]]; then
-    sudo truncate -s 0 $LOG_FILE
-    echo "Log file is too large. Cleared log file."
+if [[ -f $LOG_FILE ]]; then
+    LOG_FILE_SIZE=$(stat -f%z $LOG_FILE)
+    if [[ $LOG_FILE_SIZE -gt 500000 ]]; then
+        sudo truncate -s 0 $LOG_FILE
+        echo "🗑️ Log file is too large. Cleared log file."
+    fi
 fi
 
 RESET=0
@@ -149,9 +180,6 @@ else
     case "$1" in
         "-l"|"--list") 
             LIST=1 
-            ;;
-        "-r"|"--reset") 
-            RESET=1 
             ;;
         "--install") 
             INSTALL=1 
@@ -177,24 +205,14 @@ if [[ $LIST -eq 1 ]]; then
 fi
 
 if [[ $OS_X -eq 0 ]]; then
-    echo "Sorry - This script only works on macOS and you are on a different OS."
+    echo "❌ Sorry - This script only works on macOS and you are on a different OS."
     exit 1
 fi
 
 if [ $EUID -ne 0 ]; then
-    echo "Must be root to update system resolvers. Retry with sudo."
+    echo "❌ Must be root to update system resolvers. Retry with sudo."
     exit 1
 fi
-
-# Reset DNS settings to default
-if [[ $RESET -eq 1 ]]; then
-    echo "Resetting DNS settings to default"
-    set_dns_servers "empty"
-    echo
-    echo "This setting is temporary. You need set DEFAULT in $CONFIG_FILE to persist DNS settings."
-    exit 0
-fi
-
 
 # Uninstall the service
 if [[ $UNINSTALL -eq 1 ]]; then
@@ -203,8 +221,11 @@ if [[ $UNINSTALL -eq 1 ]]; then
 fi
 
 # Load DNS servers from config file
-echo "Checking config file at: $CONFIG_FILE"
+echo "========================================"
+echo "🔍 Checking Configuration File"
+echo "========================================"
 echo
+
 if [[ -f $CONFIG_FILE ]]; then
     CONFIG_CONTENT=$(cat $CONFIG_FILE | tr '\n' ' ')
     if [[ $CONFIG_CONTENT == "DEFAULT" ]]; then
@@ -212,11 +233,18 @@ if [[ -f $CONFIG_FILE ]]; then
     else
         SERVERS=$CONFIG_CONTENT
     fi
-    echo "DNS servers will be persisted from config: $CONFIG_CONTENT"
-
+    echo "✅ Configuration file found at: $CONFIG_FILE"
+    echo "   DNS servers will be persisted from the configuration: $CONFIG_CONTENT"
 else
-    SERVERS="empty"
-    echo "Config file not found. Using default servers. (eg. auto from DHCP)"
+    echo "❌ Configuration file not found!"
+    echo "   Please create a configuration file at: $CONFIG_FILE"
+    echo "   Example if using localhost:"
+    echo "      echo 127.0.0.1 ::1' | sudo tee $CONFIG_FILE"
+    echo "   Example if using Cloudflare:"
+    echo "      echo '1.1.1.1 1.0.0.1' | sudo tee $CONFIG_FILE"
+    echo "   Example if using Default from DHCP:"
+    echo "      echo'DEFAULT' | sudo tee $CONFIG_FILE"
+    exit 1
 fi
 
 echo
