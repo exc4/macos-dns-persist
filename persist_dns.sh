@@ -238,12 +238,15 @@ if [[ -f $CONFIG_FILE ]]; then
 else
     echo "❌ Configuration file not found!"
     echo "   Please create a configuration file at: $CONFIG_FILE"
+    echo
     echo "   Example if using localhost:"
-    echo "      echo 127.0.0.1 ::1' | sudo tee $CONFIG_FILE"
+    echo "      echo '127.0.0.1 ::1' | sudo tee $CONFIG_FILE"
+    echo
     echo "   Example if using Cloudflare:"
     echo "      echo '1.1.1.1 1.0.0.1' | sudo tee $CONFIG_FILE"
+    echo
     echo "   Example if using Default from DHCP:"
-    echo "      echo'DEFAULT' | sudo tee $CONFIG_FILE"
+    echo "      echo 'DEFAULT' | sudo tee $CONFIG_FILE"
     exit 1
 fi
 
