@@ -9,7 +9,7 @@ This repository helps you set the same DNS resolvers for all network connections
 ## Files
 
 -  `io.github.exc4.dnspersist.plist`: Launch service configuration file.
--  `persist_dns.sh`: Shell command script.
+-  `dnspersist.sh`: Shell command script.
 
 ## How to Use
 
@@ -21,36 +21,36 @@ cd macos-dns-persist
 
 # Set the DNS configuration for persistence.
 # You can specify multiple DNS servers separated by spaces.
-echo "127.0.0.1 ::1" | sudo tee /etc/persist_dns.conf
+echo "127.0.0.1 ::1" | sudo tee /etc/dnspersist.conf
 
-./persist_dns.sh --install
+sudo ./dnspersist.sh --install
 ```
 
 After installation, the script applies the DNS settings immediately and continues to persist the setting periodically and whenever the network changes. 
 ## How to Uninstall
 
 ```bash
-persist_dns --uninstall
+dnspersist --uninstall
 ```
 
 ## How to Configure DNS Persistence
 
-To set the DNS servers, edit the `/etc/persist_dns.conf` file. 
+To set the DNS servers, edit the `/etc/dnspersist.conf` file. 
 ```bash
 # use local DNS server, ensure there is one running on the system
 # you can choose dnsmasq, stubby, cloudflared and etc.
-echo "127.0.0.1 ::1" | sudo tee /etc/persist_dns.conf      
+echo "127.0.0.1 ::1" | sudo tee /etc/dnspersist.conf      
 
 # use public DNS servers
-echo "8.8.8.8 8.8.4.4" | sudo tee /etc/persist_dns.conf  
+echo "8.8.8.8 8.8.4.4" | sudo tee /etc/dnspersist.conf  
 
 # use default DNS servers obtained from DHCP
-echo "DEFAULT" | sudo tee /etc/persist_dns.conf           
+echo "DEFAULT" | sudo tee /etc/dnspersist.conf           
 ```
 After editing the file, run the following command to apply the changes:
 
 ```bash
-sudo persist_dns
+sudo dnspersist
 ```
 
 The default time interval for the periodic execution is 30 minutes. You can adjust this interval by editing the `/Library/LaunchDaemons/io.github.exc4.dnspersist.plist` file, and changing the `StartInterval` value.

@@ -39,19 +39,19 @@ usage () {
 
 install_service() {
     # copy to system
-    cp -f ./persist_dns.sh /usr/local/bin/persist_dns || { echo "Failed to copy persist_dns.sh"; exit 1; }
+    cp -f ./dnspersist.sh /usr/local/bin/dnspersist || { echo "Failed to copy dnspersist.sh"; exit 1; }
     cp -f ./$PLIST_NAME /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to copy $PLIST_NAME"; exit 1; }
 
-    rm -f /tmp/persist_dns
+    rm -f /tmp/dnspersist
     rm -f /tmp/$PLIST_NAME
 
     # set permissions
     chown root:wheel /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to change ownership of $PLIST_NAME"; exit 1; }
     chmod 644 /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to set permissions for $PLIST_NAME"; exit 1; }
-    chmod a+x /usr/local/bin/persist_dns || { echo "Failed to set execute permission for persist_dns"; exit 1; }
+    chmod a+x /usr/local/bin/dnspersist || { echo "Failed to set execute permission for dnspersist"; exit 1; }
 
     # load the service
-    launchctl load /Library/LaunchDaemons/$PLIST_NAME || { echo "Failed to load service"; exit 1; }
+    launchctl enable system/$PLIST_ID || { echo "Failed to load service"; exit 1; }
 
     echo "========================================"
     echo "✅ Installation Successful!"
@@ -68,13 +68,13 @@ install_service() {
     echo "    should return: '- 0 io.github.exc4.dnspersist' for successful execution"
     echo
     echo "🔧 To view the current DNS settings, use:"
-    echo "    persist_dns --list"
+    echo "    dnspersist --list"
     echo
     echo "📜 To view the service log, use:"
-    echo "    cat /var/log/persist_dns.log"
+    echo "    cat /var/log/dnspersist.log"
     echo
     echo "🗑️ To uninstall the service, use:"
-    echo "    sudo persist_dns --uninstall"
+    echo "    sudo dnspersist --uninstall"
     echo
     echo "========================================"
 
@@ -87,28 +87,38 @@ uninstall_service() {
     echo "========================================"
 
     # do you want to reset to default?
-    read -p "🔄 Do you want reset to default DNS servers? (y/n) " RESET_DEFAULT
-    read -p "🗑️ Do you want to remove the config file? (y/n) " REMOVE_CONFIG
+    read -p "🔄 Do you want reset to default DNS servers? (y/n -- default n) " RESET_DEFAULT
+    read -p "🗑️ Do you want to remove the config file? (y/n -- default n) " REMOVE_CONFIG
 
     if [[ $RESET_DEFAULT == "y" ]]; then
-        sudo set_dns_servers "empty"
+        set_dns_servers "empty"
     fi
 
     if [[ $REMOVE_CONFIG == "y" ]]; then
-        sudo rm -f $CONFIG_FILE
+        rm -f $CONFIG_FILE
     fi
 
-    if [[ -f /Library/LaunchDaemons/$PLIST_NAME ]]; then
-        sudo launchctl unload /Library/LaunchDaemons/$PLIST_NAME
-        sudo rm -f /Library/LaunchDaemons/$PLIST_NAME
+    # Check if service is running first
+    if launchctl list | grep -q "$PLIST_NAME"; then
+        # Try to unload service
+        if ! launchctl disable system/$PLIST_ID; then
+            echo "❌ Failed to disable service $PLIST_NAME"
+            exit 1
+        fi
     fi
 
-    if [[ -f /usr/local/bin/persist_dns ]]; then
-        sudo rm -f /usr/local/bin/persist_dns
+    # Delete file only after confirming service is unloaded
+    if ! rm -f /Library/LaunchDaemons/$PLIST_NAME; then
+        echo "❌ Failed to delete service file $PLIST_NAME"
+        exit 1
     fi
 
-    if [[ -f /var/log/persist_dns.log ]]; then
-        sudo rm -f /var/log/persist_dns.log
+    if [[ -f /usr/local/bin/dnspersist ]]; then
+        rm -f /usr/local/bin/dnspersist
+    fi
+
+    if [[ -f /var/log/dnspersist.log ]]; then
+        rm -f /var/log/dnspersist.log
     fi
 
     echo "========================================"
@@ -117,7 +127,7 @@ uninstall_service() {
 }
 
 list_current_dns() {
-    echo "** /etc/persist_dns.conf **"
+    echo "** /etc/dnspersist.conf **"
     if [[ -f $CONFIG_FILE ]]; then 
         cat $CONFIG_FILE
     else
@@ -145,7 +155,7 @@ list_current_dns() {
 set_dns_servers() {
     local servers="$1"
     networksetup -listallnetworkservices 2>/dev/null | grep -v '\*' | while read -r x ; do
-        sudo networksetup -setdnsservers "$x" $servers
+        networksetup -setdnsservers "$x" $servers
     done
     echo
     echo "🔄 DNS resolvers have been set, use --list to check"
@@ -155,11 +165,11 @@ set_dns_servers() {
 ### start of script
 
 # check the log file size
-LOG_FILE="/var/log/persist_dns.log"
+LOG_FILE="/var/log/dnspersist.log"
 if [[ -f $LOG_FILE ]]; then
     LOG_FILE_SIZE=$(stat -f%z $LOG_FILE)
     if [[ $LOG_FILE_SIZE -gt 500000 ]]; then
-        sudo truncate -s 0 $LOG_FILE
+        truncate -s 0 $LOG_FILE
         echo "🗑️ Log file is too large. Cleared log file."
     fi
 fi
@@ -169,8 +179,9 @@ LIST=0
 INSTALL=0
 UNINSTALL=0
 EXECUTE=0
-CONFIG_FILE="/etc/persist_dns.conf"
+CONFIG_FILE="/etc/dnspersist.conf"
 PLIST_NAME="io.github.exc4.dnspersist.plist"
+PLIST_ID="io.github.exc4.dnspersist"
 OS_X=$(uname -a | grep -c 'Darwin')
 
 # no args, set

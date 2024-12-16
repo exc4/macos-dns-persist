@@ -6,7 +6,7 @@
 	<string>io.github.exc4.dnspersist</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/local/bin/persist_dns</string>
+		<string>/usr/local/bin/dnspersist</string>
 	</array>
 
 	<key>RunAtLoad</key>
@@ -19,9 +19,9 @@
 	</array>
 
   	<key>StandardOutPath</key>
-  	<string>/var/log/persist_dns.log</string>
+  	<string>/var/log/dnspersist.log</string>
   	<key>StandardErrorPath</key>
-  	<string>/var/log/persist_dns.log</string>
+  	<string>/var/log/dnspersist.log</string>
 
 </dict>
 </plist>
