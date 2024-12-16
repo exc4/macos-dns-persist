@@ -53,7 +53,7 @@ After editing the file, run the following command to apply the changes:
 sudo persist_dns
 ```
 
-The default time interval for the periodic execution is 5 minutes. You can adjust this interval by editing the `/Library/LaunchDaemons/io.github.exc4.dnspersist.plist` file, and changing the `StartInterval` value.
+The default time interval for the periodic execution is 30 minutes. You can adjust this interval by editing the `/Library/LaunchDaemons/io.github.exc4.dnspersist.plist` file, and changing the `StartInterval` value.
 
 After editing the file, run the following command to apply the changes:
 
