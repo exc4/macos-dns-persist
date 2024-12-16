@@ -1,4 +1,4 @@
-# macOS Persist DNS
+# macOS Persist DNS Resolvers
 
 This repository offers a solution to persist DNS settings across all network connections on macOS using a launch service.
 
